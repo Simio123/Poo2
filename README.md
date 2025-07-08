@@ -11,6 +11,8 @@ npm install
 After run the development server:
 
 ```bash
+npm install react-intersection-observer
+# or
 npm run dev
 # or
 yarn dev
