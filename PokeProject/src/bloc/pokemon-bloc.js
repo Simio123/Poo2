@@ -2,22 +2,14 @@
 
 import { pokemonEventEmitter } from "../events/pokemon-event-emitter";
 import { fetchGames, fetchPokemonByCategory, fetchAllAbilitiesWithDetails, fetchGameDetails } from "../../app/actions/gameActions";
-import { pokemonAPI } from "../data/pokemon-api-adapter";
 
 class PokemonBloc {
-    constructor(pokemonApiInstance) {
-        this.pokemonApi = pokemonApiInstance;
+    constructor() {
         this.state = {
             pokemonList: [],
             filters: {
-                sName: ".",
-                sType: ".",
-                sWeakness: ".",
-                sAbility: ".",
-                sHeight: ".",
-                sWeight: ".",
-                sOrdering: ".",
-                sPage: 1
+                sName: ".", sType: ".", sWeakness: ".", sAbility: ".",
+                sHeight: ".", sWeight: ".", sOrdering: ".", sPage: 1
             },
             loading: false,
             isLoadingMore: false,
@@ -26,17 +18,11 @@ class PokemonBloc {
             abilities: []
         };
         this.listeners = [];
-        this.init();
-    }
-
-    init() {
-        // Load initial abilities
-        this.loadAbilities();
     }
 
     subscribe(listener) {
         this.listeners.push(listener);
-        listener(this.state); // Emit current state immediately to new subscriber
+        listener(this.state); // Envia o estado atual imediatamente
         return () => {
             this.listeners = this.listeners.filter(l => l !== listener);
         };
@@ -47,64 +33,94 @@ class PokemonBloc {
         this.listeners.forEach(listener => listener(this.state));
     }
 
+    // Ação para carregar habilidades (deve ser chamada de um Client Component)
     async loadAbilities() {
+        if (this.state.abilities.length > 0) return; // Evita recarregar
         this._emit({ loading: true });
         try {
-            const abilities = await fetchAllAbilitiesWithDetails(this.pokemonApi);
+            const abilities = await fetchAllAbilitiesWithDetails();
             this._emit({ abilities, loading: false });
         } catch (error) {
-            console.error("Error loading abilities:", error);
-            this._emit({ error: "Failed to load abilities.", loading: false });
+            console.error("Erro ao carregar habilidades:", error);
+            this._emit({ error: "Falha ao carregar habilidades.", loading: false });
         }
     }
 
-    async fetchPokemon(newFilters = {}) {
-        console.log("[PokemonBloc] fetchPokemon called with newFilters:", newFilters);
-        this._emit({ loading: true, error: null });
-        const currentFilters = { ...this.state.filters, ...newFilters };
-        console.log("[PokemonBloc] currentFilters:", currentFilters);
+    // Define filtros e dispara uma nova busca
+    async setFilters(newFilters) {
+        const updatedFilters = { ...this.state.filters, ...newFilters, sPage: 1 };
+        this._emit({ filters: updatedFilters });
+        await this.fetchPokemon(updatedFilters);
+    }
+    
+    // Reseta os filtros para o estado inicial e busca novamente
+    async resetFilters() {
+        const initialFilters = {
+            sName: ".", sType: ".", sWeakness: ".", sAbility: ".",
+            sHeight: ".", sWeight: ".", sOrdering: ".", sPage: 1
+        };
+        this._emit({ filters: initialFilters });
+        await this.fetchPokemon(initialFilters);
+    }
+
+    // Ação principal para buscar Pokémon com base nos filtros atuais
+    async fetchPokemon(filtersToUse = this.state.filters) {
+        this._emit({ loading: true, error: null, isLoadingMore: false });
 
         try {
-            let result;
-            if (currentFilters.sType !== "." || currentFilters.sWeakness !== ".") {
-                console.log("[PokemonBloc] Fetching by category.");
-                const categoryType = currentFilters.sType !== "." ? "type" : "type";
-                const categoryValue = currentFilters.sType !== "." ? currentFilters.sType : currentFilters.sWeakness;
-                result = await fetchPokemonByCategory(categoryType, categoryValue, currentFilters, this.pokemonApi);
-                console.log("[PokemonBloc] Result from fetchPokemonByCategory:", result);
-            } else {
-                console.log("[PokemonBloc] Fetching all games.");
-                result = await fetchGames(currentFilters, this.pokemonApi);
-                console.log("[PokemonBloc] Result from fetchGames:", result);
-            }
-
-            let updatedPokemonList;
-            if (currentFilters.sPage === 1) {
-                updatedPokemonList = result.pokemon || [];
-                console.log("[PokemonBloc] First page fetch. updatedPokemonList:", updatedPokemonList.length);
-            } else {
-                const newPokemon = (result.pokemon || []).filter(newPoke =>
-                    !this.state.pokemonList.some(existingPoke => existingPoke.id === newPoke.id)
-                );
-                updatedPokemonList = [...this.state.pokemonList, ...newPokemon];
-                console.log("[PokemonBloc] Loading more. newPokemon count:", newPokemon.length, "updatedPokemonList total:", updatedPokemonList.length);
-            }
-
+            const result = await fetchGames(filtersToUse);
             this._emit({
-                pokemonList: updatedPokemonList,
-                filters: currentFilters,
+                pokemonList: result.pokemon || [],
                 hasMore: result.hasMore,
                 loading: false,
-                isLoadingMore: false
+                filters: filtersToUse // Garante que os filtros estejam sincronizados
             });
-            console.log("[PokemonBloc] State updated. pokemonList count:", updatedPokemonList.length);
-            pokemonEventEmitter.emit("pokemonFetched", updatedPokemonList);
+            pokemonEventEmitter.emit("pokemonFetched", result.pokemon || []);
         } catch (error) {
-            console.error("Error fetching Pokemon:", error);
-            this._emit({ error: "Failed to fetch Pokemon.", loading: false });
+            console.error("Erro ao buscar Pokémon:", error);
+            this._emit({ error: "Falha ao buscar Pokémon.", loading: false });
+        }
+    }
+    
+    // Ação para carregar mais Pokémon (paginação)
+    async loadMorePokemon() {
+        if (this.state.loading || this.state.isLoadingMore || !this.state.hasMore) return;
+
+        this._emit({ isLoadingMore: true });
+        const nextPage = this.state.filters.sPage + 1;
+        const newFilters = { ...this.state.filters, sPage: nextPage };
+
+        try {
+            const result = await fetchGames(newFilters);
+            const newPokemon = (result.pokemon || []).filter(newPoke =>
+                !this.state.pokemonList.some(existingPoke => existingPoke.id === newPoke.id)
+            );
+
+            this._emit({
+                pokemonList: [...this.state.pokemonList, ...newPokemon],
+                hasMore: result.hasMore,
+                isLoadingMore: false,
+                filters: newFilters
+            });
+        } catch (error) {
+            console.error("Erro ao carregar mais Pokémon:", error);
+            this._emit({ isLoadingMore: false, error: "Falha ao carregar mais." });
+        }
+    }
+
+    // Ação para buscar detalhes de um Pokémon específico
+    async fetchPokemonDetails(id) {
+        this._emit({ loading: true, error: null });
+        try {
+            const pokemonDetails = await fetchGameDetails(id);
+            this._emit({ loading: false }); // Para o loading geral
+            return pokemonDetails; // Retorna os detalhes para o componente
+        } catch (error) {
+            console.error(`Erro ao buscar detalhes do Pokémon ${id}:`, error);
+            this._emit({ error: "Falha ao buscar detalhes do Pokémon.", loading: false });
+            return null;
         }
     }
 }
 
-export const pokemonBloc = new PokemonBloc(pokemonAPI);
-
+export const pokemonBloc = new PokemonBloc();

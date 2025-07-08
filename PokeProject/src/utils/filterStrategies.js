@@ -1,5 +1,4 @@
-
-// src/utils/filterStrategies.js
+import { isPokemonWeakAgainst } from './type-effectiveness';
 
 export const filterStrategies = {
     byType: (pokemonList, type) => {
@@ -24,23 +23,25 @@ export const filterStrategies = {
             default: return pokemonList;
         }
     },
-    // Add more filter strategies here as needed
+    // --- NOVA ESTRATÉGIA DE FILTRO POR FRAQUEZA ---
+    byWeakness: (pokemonList, weaknessType) => {
+        if (!weaknessType || weaknessType === ".") return pokemonList;
+        return pokemonList.filter(p => {
+            const pokemonTypeNames = p.types.map(t => t.name.toLowerCase());
+            return isPokemonWeakAgainst(pokemonTypeNames, weaknessType.toLowerCase());
+        });
+    }
 };
 
 export function applyFilters(pokemonList, filters) {
     let filtered = [...pokemonList];
-    const { sType, sHeight, sWeight } = filters;
+    const { sType, sHeight, sWeight, sWeakness } = filters;
 
     filtered = filterStrategies.byType(filtered, sType);
     filtered = filterStrategies.byHeight(filtered, sHeight);
     filtered = filterStrategies.byWeight(filtered, sWeight);
-
-    // Weakness filter is not fully implemented in original, so keep the warning
-    if (filters.sWeakness && filters.sWeakness !== ".") {
-        console.warn("Filtro de fraqueza (sWeakness) não implementado completamente.");
-    }
+    // --- APLICANDO O NOVO FILTRO DE FRAQUEZA ---
+    filtered = filterStrategies.byWeakness(filtered, sWeakness);
 
     return filtered;
 }
-
-

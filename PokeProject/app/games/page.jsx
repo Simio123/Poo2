@@ -12,13 +12,18 @@ export default function GamesPage() {
 
   const updateFilters = (event) => setFilters((prev) => ({ ...prev, [event.target.name]: event.target.value }));
 
-  useEffect(() => { 
-    setLoading(true);
-    fetchGames(filters).then((data) => {
-      setGames(data);
-      setLoading(false);
-    }); 
-  }, [filters]);
+useEffect(() => {
+  setLoading(true);
+  fetchGames(filters).then((data) => {
+    // Ao carregar mais, adicione os novos Pokémon à lista existente
+    if (filters.sPage > 1) {
+      setGames(prevGames => [...prevGames, ...data.pokemon]);
+    } else {
+      setGames(data.pokemon || []); // Garante que games seja sempre um array
+    }
+    setLoading(false);
+  });
+}, [filters.sName, filters.sOrdering, filters.sPage]); 
 
   const loadMorePokemon = () => {
     setFilters(prev => ({ ...prev, sPage: prev.sPage + 1 }));

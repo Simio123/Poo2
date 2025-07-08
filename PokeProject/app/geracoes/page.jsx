@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import PokemonCard from '../components/PokemonCard';
 import { fetchPokemonByCategory } from '../actions/gameActions'; // Usar a função de categoria
+import PokeballLoader from '../components/PokeballLoader'; // Importado
 
 // Lista de gerações de Pokémon com descrições
 const pokemonGenerations = [
