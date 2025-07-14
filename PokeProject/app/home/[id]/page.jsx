@@ -235,8 +235,8 @@ export default function PokemonDetails() {
               <div className="detail-section bg-gray-50 rounded-lg shadow-inner p-6">
                 <h2 className="text-2xl font-bold mb-4 text-gray-800">Habilidades</h2>
                 <ul className="list-disc list-inside space-y-2 text-gray-700">
-                    {abilities.map(abilityInfo => (
-                        <li key={abilityInfo.name} className="capitalize text-md">{capitalize(abilityInfo.name)}</li>
+                    {abilities.map( (abilityInfo, index) => (
+                        <li key={index} className="capitalize text-md">{capitalize(abilityInfo.name)}</li>
                     ))}
                 </ul>
               </div>
